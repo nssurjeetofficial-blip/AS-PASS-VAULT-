@@ -15,10 +15,7 @@ body{
  min-height:100vh;padding:22px 16px;
 }
 .container{max-width:520px;margin:auto}
-header{
- display:flex;align-items:center;gap:12px;
- padding:12px 0 30px;
-}
+header{display:flex;align-items:center;gap:12px;padding:12px 0 30px}
 .logo{
  width:45px;height:45px;border-radius:13px;
  background:#172554;color:white;
@@ -63,6 +60,11 @@ button{
 .entryactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
 .entryactions button{padding:9px 12px;font-size:12px}
 .empty{text-align:center;padding:30px 8px;color:#64748b;font-size:14px}
+.timer-note{
+ font-size:12px;color:#64748b;
+ background:#f1f5f9;padding:10px 12px;
+ border-radius:9px;margin-bottom:15px;
+}
 footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
 </style>
 </head>
@@ -83,7 +85,6 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
  <p>Keep your important account credentials in one private and encrypted vault.</p>
 </section>
 
-<!-- CREATE VAULT -->
 <section id="setup" class="card hidden">
  <h3>Create your private vault</h3>
  <p class="subtitle">Choose a strong master password. You will need it every time you unlock your vault.</p>
@@ -98,7 +99,6 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
  <p id="setupMsg" class="message"></p>
 </section>
 
-<!-- UNLOCK -->
 <section id="unlock" class="card hidden">
  <h3>Welcome back</h3>
  <p class="subtitle">Enter your master password to unlock your vault.</p>
@@ -110,7 +110,6 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
  <p id="unlockMsg" class="message"></p>
 </section>
 
-<!-- MAIN VAULT -->
 <section id="vault" class="hidden">
 
  <div class="topline">
@@ -119,6 +118,10 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
    <p class="count" id="count">0 saved accounts</p>
   </div>
   <button class="secondary" id="lockBtn">🔒 Lock</button>
+ </div>
+
+ <div class="timer-note">
+  🔐 Auto-Lock is ON · Locks after 5 minutes of inactivity.
  </div>
 
  <section class="card">
@@ -151,9 +154,11 @@ footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
 
 <script>
 const STORAGE_KEY = "as_pass_vault_encrypted_v1";
+const AUTO_LOCK_TIME = 5 * 60 * 1000;
 
 let encryptionKey = null;
 let accounts = [];
+let autoLockTimer = null;
 
 const $ = id => document.getElementById(id);
 
@@ -220,6 +225,7 @@ async function decryptData(envelope){
 
 async function saveVault(){
  const envelope = await encryptData(accounts);
+
  localStorage.setItem(
   STORAGE_KEY,
   JSON.stringify({
@@ -230,6 +236,57 @@ async function saveVault(){
  );
 }
 
+// ===============================
+// AUTO-LOCK SYSTEM
+// ===============================
+
+function stopAutoLock(){
+ if(autoLockTimer){
+  clearTimeout(autoLockTimer);
+  autoLockTimer=null;
+ }
+}
+
+function resetAutoLock(){
+ if(!encryptionKey)return;
+
+ stopAutoLock();
+
+ autoLockTimer=setTimeout(()=>{
+  lockVault(true);
+ },AUTO_LOCK_TIME);
+}
+
+function startAutoLock(){
+ stopAutoLock();
+ resetAutoLock();
+}
+
+// User activity resets the timer
+["pointerdown","keydown","touchstart","scroll","click"].forEach(eventName=>{
+ document.addEventListener(eventName,()=>{
+  resetAutoLock();
+ },{passive:true});
+});
+
+// Lock immediately when the browser tab is hidden
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden && encryptionKey){
+  lockVault(true);
+ }
+});
+
+// Also lock if the browser window loses focus
+window.addEventListener("blur",()=>{
+ if(encryptionKey){
+  lockVault(true);
+ }
+});
+
+// ===============================
+// CREATE VAULT
+// ===============================
+
 async function createVault(){
  if(!window.isSecureContext || !crypto.subtle){
   $("setupMsg").textContent="Secure HTTPS connection required.";
@@ -237,14 +294,14 @@ async function createVault(){
  }
 
  const password=$("newMaster").value;
- const confirm=$("confirmMaster").value;
+ const confirmPassword=$("confirmMaster").value;
 
  if(password.length<12){
   $("setupMsg").textContent="Use at least 12 characters for your master password.";
   return;
  }
 
- if(password!==confirm){
+ if(password!==confirmPassword){
   $("setupMsg").textContent="Passwords do not match.";
   return;
  }
@@ -252,19 +309,29 @@ async function createVault(){
  try{
   const salt=randomBytes(16);
   window.vaultSalt=Array.from(salt);
+
   encryptionKey=await deriveKey(password,salt);
   accounts=[];
+
   await saveVault();
 
   $("newMaster").value="";
   $("confirmMaster").value="";
+  $("setupMsg").textContent="";
+
   showScreen("vault");
   renderAccounts();
+  startAutoLock();
+
  }catch(error){
   encryptionKey=null;
   $("setupMsg").textContent="Vault creation failed.";
  }
 }
+
+// ===============================
+// UNLOCK VAULT
+// ===============================
 
 async function unlockVault(){
  if(!window.isSecureContext || !crypto.subtle){
@@ -277,24 +344,56 @@ async function unlockVault(){
 
  try{
   const stored=JSON.parse(localStorage.getItem(STORAGE_KEY));
+
+  if(!stored || !stored.salt || !stored.encrypted){
+   throw new Error("Invalid vault");
+  }
+
   window.vaultSalt=stored.salt;
 
-  encryptionKey=await deriveKey(
+  const newKey=await deriveKey(
    password,
    new Uint8Array(stored.salt)
   );
 
-  accounts=await decryptData(stored.encrypted);
+  const decryptedAccounts=await decryptWithKey(
+   stored.encrypted,
+   newKey
+  );
+
+  encryptionKey=newKey;
+  accounts=decryptedAccounts;
 
   $("masterInput").value="";
   $("unlockMsg").textContent="";
+
   showScreen("vault");
   renderAccounts();
+  startAutoLock();
+
  }catch(error){
   encryptionKey=null;
+  accounts=[];
   $("unlockMsg").textContent="Incorrect password or damaged vault.";
  }
 }
+
+async function decryptWithKey(envelope,key){
+ const decrypted=await crypto.subtle.decrypt(
+  {
+   name:"AES-GCM",
+   iv:new Uint8Array(envelope.iv)
+  },
+  key,
+  new Uint8Array(envelope.data)
+ );
+
+ return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+// ===============================
+// ADD ACCOUNT
+// ===============================
 
 async function addAccount(){
  const site=$("site").value.trim();
@@ -306,25 +405,35 @@ async function addAccount(){
   return;
  }
 
- accounts.push({
+ const newAccount={
   id:crypto.randomUUID(),
   site:site,
   username:username,
   password:password
- });
+ };
+
+ accounts.push(newAccount);
 
  try{
   await saveVault();
+
   $("site").value="";
   $("username").value="";
   $("password").value="";
   $("addMsg").textContent="";
+
   renderAccounts();
+  resetAutoLock();
+
  }catch(error){
-  accounts.pop();
+  accounts=accounts.filter(a=>a.id!==newAccount.id);
   $("addMsg").textContent="Could not save account.";
  }
 }
+
+// ===============================
+// DISPLAY ACCOUNTS
+// ===============================
 
 function renderAccounts(){
  const container=$("entries");
@@ -372,6 +481,9 @@ function renderAccounts(){
   remove.className="danger";
   remove.textContent="Delete";
 
+  const passwordText=document.createElement("small");
+  passwordText.textContent="Password hidden";
+
   reveal.onclick=()=>{
    if(reveal.dataset.visible==="yes"){
     reveal.textContent="Show password";
@@ -384,14 +496,13 @@ function renderAccounts(){
    }
   };
 
-  const passwordText=document.createElement("small");
-  passwordText.textContent="Password hidden";
-
   copy.onclick=async()=>{
    try{
     await navigator.clipboard.writeText(account.username);
     copy.textContent="Copied!";
-    setTimeout(()=>copy.textContent="Copy username",1500);
+    setTimeout(()=>{
+     if(copy.isConnected)copy.textContent="Copy username";
+    },1500);
    }catch(e){
     copy.textContent="Copy unavailable";
    }
@@ -399,11 +510,14 @@ function renderAccounts(){
 
   remove.onclick=async()=>{
    if(!confirm("Delete this saved account?"))return;
+
    const previous=accounts;
    accounts=accounts.filter(a=>a.id!==account.id);
+
    try{
     await saveVault();
     renderAccounts();
+    resetAutoLock();
    }catch(e){
     accounts=previous;
     renderAccounts();
@@ -417,17 +531,46 @@ function renderAccounts(){
  });
 }
 
-function lockVault(){
+// ===============================
+// MANUAL + AUTOMATIC LOCK
+// ===============================
+
+function lockVault(automatic=false){
+ stopAutoLock();
+
  encryptionKey=null;
  accounts=[];
+
  $("entries").replaceChildren();
+ $("count").textContent="0 saved accounts";
+
+ $("site").value="";
+ $("username").value="";
+ $("password").value="";
+ $("addMsg").textContent="";
+
+ $("masterInput").value="";
+ $("unlockMsg").textContent="";
+
+ if(automatic){
+  $("unlockMsg").textContent="Vault locked automatically for your security.";
+ }
+
  showScreen("unlock");
 }
+
+// ===============================
+// BUTTON EVENTS
+// ===============================
 
 $("createBtn").onclick=createVault;
 $("unlockBtn").onclick=unlockVault;
 $("addBtn").onclick=addAccount;
-$("lockBtn").onclick=lockVault;
+$("lockBtn").onclick=()=>lockVault(false);
+
+// ===============================
+// INITIALIZE
+// ===============================
 
 function initialize(){
  if(!window.isSecureContext || !crypto.subtle){
@@ -446,5 +589,5 @@ function initialize(){
 initialize();
 </script>
 </body>
-  </html>
-  
+ </html>
+ 
