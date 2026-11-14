@@ -1,0 +1,450 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f8fafc">
+<title>AS PASS VAULT</title>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+ font-family:Arial,sans-serif;
+ background:#f8fafc;color:#172033;
+ min-height:100vh;padding:22px 16px;
+}
+.container{max-width:520px;margin:auto}
+header{
+ display:flex;align-items:center;gap:12px;
+ padding:12px 0 30px;
+}
+.logo{
+ width:45px;height:45px;border-radius:13px;
+ background:#172554;color:white;
+ display:grid;place-items:center;font-size:23px;
+}
+h1{font-size:21px;letter-spacing:-.5px}
+.subtitle{font-size:12px;color:#64748b;margin-top:4px}
+.hero{margin:12px 0 25px}
+.hero h2{font-size:29px;letter-spacing:-1px;margin-bottom:9px}
+.hero p{color:#64748b;font-size:14px;line-height:1.6}
+.card{
+ background:white;border:1px solid #e2e8f0;
+ border-radius:17px;padding:21px;margin-bottom:17px;
+ box-shadow:0 5px 20px #0f172a08;
+}
+.card h3{font-size:17px;margin-bottom:17px}
+label{display:block;font-size:13px;font-weight:600;margin:14px 0 7px}
+input{
+ width:100%;padding:14px;border:1px solid #dbe2ea;
+ border-radius:10px;font-size:15px;outline:none;
+ background:#fff;color:#172033;
+}
+input:focus{border-color:#4263eb}
+button{
+ border:0;border-radius:10px;padding:13px 16px;
+ font-size:14px;font-weight:600;cursor:pointer;
+}
+.primary{background:#172554;color:white;width:100%;margin-top:17px}
+.secondary{background:#eef2ff;color:#263b80}
+.danger{background:#fff1f2;color:#be123c}
+.hidden{display:none!important}
+.message{font-size:13px;margin-top:12px;color:#dc2626}
+.topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:17px}
+.count{font-size:13px;color:#64748b}
+.entry{
+ border:1px solid #e2e8f0;border-radius:13px;
+ padding:15px;margin-top:12px;background:#fff;
+}
+.entrytop{display:flex;justify-content:space-between;gap:10px}
+.entry strong{font-size:15px}
+.entry small{display:block;color:#64748b;margin-top:6px;overflow-wrap:anywhere}
+.entryactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.entryactions button{padding:9px 12px;font-size:12px}
+.empty{text-align:center;padding:30px 8px;color:#64748b;font-size:14px}
+footer{text-align:center;color:#94a3b8;font-size:11px;padding:25px 0}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+ <div class="logo">🔐</div>
+ <div>
+  <h1>AS PASS VAULT</h1>
+  <div class="subtitle">Your passwords. Your control.</div>
+ </div>
+</header>
+
+<section class="hero">
+ <h2>Your digital life,<br>secured.</h2>
+ <p>Keep your important account credentials in one private and encrypted vault.</p>
+</section>
+
+<!-- CREATE VAULT -->
+<section id="setup" class="card hidden">
+ <h3>Create your private vault</h3>
+ <p class="subtitle">Choose a strong master password. You will need it every time you unlock your vault.</p>
+
+ <label>Master password</label>
+ <input id="newMaster" type="password" autocomplete="new-password" placeholder="Create master password">
+
+ <label>Confirm master password</label>
+ <input id="confirmMaster" type="password" autocomplete="new-password" placeholder="Confirm master password">
+
+ <button class="primary" id="createBtn">Create Secure Vault</button>
+ <p id="setupMsg" class="message"></p>
+</section>
+
+<!-- UNLOCK -->
+<section id="unlock" class="card hidden">
+ <h3>Welcome back</h3>
+ <p class="subtitle">Enter your master password to unlock your vault.</p>
+
+ <label>Master password</label>
+ <input id="masterInput" type="password" autocomplete="current-password" placeholder="Enter master password">
+
+ <button class="primary" id="unlockBtn">Unlock Vault</button>
+ <p id="unlockMsg" class="message"></p>
+</section>
+
+<!-- MAIN VAULT -->
+<section id="vault" class="hidden">
+
+ <div class="topline">
+  <div>
+   <h2>My Accounts</h2>
+   <p class="count" id="count">0 saved accounts</p>
+  </div>
+  <button class="secondary" id="lockBtn">🔒 Lock</button>
+ </div>
+
+ <section class="card">
+  <h3>+ Add New Account</h3>
+
+  <label>Account / Website</label>
+  <input id="site" placeholder="Instagram, Gmail, Facebook...">
+
+  <label>Username / Email</label>
+  <input id="username" autocomplete="off" placeholder="Your username">
+
+  <label>Password</label>
+  <input id="password" type="password" autocomplete="new-password" placeholder="Your password">
+
+  <button class="primary" id="addBtn">Save Account Securely</button>
+  <p id="addMsg" class="message"></p>
+ </section>
+
+ <section class="card">
+  <h3>Saved Accounts</h3>
+  <div id="entries"></div>
+ </section>
+
+</section>
+
+<footer>
+ AS PASS VAULT · Private encrypted storage
+</footer>
+</div>
+
+<script>
+const STORAGE_KEY = "as_pass_vault_encrypted_v1";
+
+let encryptionKey = null;
+let accounts = [];
+
+const $ = id => document.getElementById(id);
+
+function showScreen(screen){
+ ["setup","unlock","vault"].forEach(id=>{
+  $(id).classList.toggle("hidden",id!==screen);
+ });
+}
+
+function randomBytes(length){
+ return crypto.getRandomValues(new Uint8Array(length));
+}
+
+async function deriveKey(password,salt){
+ const encoder = new TextEncoder();
+
+ const material = await crypto.subtle.importKey(
+  "raw",encoder.encode(password),"PBKDF2",false,["deriveKey"]
+ );
+
+ return crypto.subtle.deriveKey(
+  {
+   name:"PBKDF2",
+   salt:salt,
+   iterations:310000,
+   hash:"SHA-256"
+  },
+  material,
+  {name:"AES-GCM",length:256},
+  false,
+  ["encrypt","decrypt"]
+ );
+}
+
+async function encryptData(data){
+ const iv = randomBytes(12);
+ const encoded = new TextEncoder().encode(JSON.stringify(data));
+
+ const encrypted = await crypto.subtle.encrypt(
+  {name:"AES-GCM",iv:iv},
+  encryptionKey,
+  encoded
+ );
+
+ return {
+  version:1,
+  iv:Array.from(iv),
+  data:Array.from(new Uint8Array(encrypted))
+ };
+}
+
+async function decryptData(envelope){
+ const decrypted = await crypto.subtle.decrypt(
+  {
+   name:"AES-GCM",
+   iv:new Uint8Array(envelope.iv)
+  },
+  encryptionKey,
+  new Uint8Array(envelope.data)
+ );
+
+ return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+async function saveVault(){
+ const envelope = await encryptData(accounts);
+ localStorage.setItem(
+  STORAGE_KEY,
+  JSON.stringify({
+   version:1,
+   salt:window.vaultSalt,
+   encrypted:envelope
+  })
+ );
+}
+
+async function createVault(){
+ if(!window.isSecureContext || !crypto.subtle){
+  $("setupMsg").textContent="Secure HTTPS connection required.";
+  return;
+ }
+
+ const password=$("newMaster").value;
+ const confirm=$("confirmMaster").value;
+
+ if(password.length<12){
+  $("setupMsg").textContent="Use at least 12 characters for your master password.";
+  return;
+ }
+
+ if(password!==confirm){
+  $("setupMsg").textContent="Passwords do not match.";
+  return;
+ }
+
+ try{
+  const salt=randomBytes(16);
+  window.vaultSalt=Array.from(salt);
+  encryptionKey=await deriveKey(password,salt);
+  accounts=[];
+  await saveVault();
+
+  $("newMaster").value="";
+  $("confirmMaster").value="";
+  showScreen("vault");
+  renderAccounts();
+ }catch(error){
+  encryptionKey=null;
+  $("setupMsg").textContent="Vault creation failed.";
+ }
+}
+
+async function unlockVault(){
+ if(!window.isSecureContext || !crypto.subtle){
+  $("unlockMsg").textContent="Secure HTTPS connection required.";
+  return;
+ }
+
+ const password=$("masterInput").value;
+ if(!password)return;
+
+ try{
+  const stored=JSON.parse(localStorage.getItem(STORAGE_KEY));
+  window.vaultSalt=stored.salt;
+
+  encryptionKey=await deriveKey(
+   password,
+   new Uint8Array(stored.salt)
+  );
+
+  accounts=await decryptData(stored.encrypted);
+
+  $("masterInput").value="";
+  $("unlockMsg").textContent="";
+  showScreen("vault");
+  renderAccounts();
+ }catch(error){
+  encryptionKey=null;
+  $("unlockMsg").textContent="Incorrect password or damaged vault.";
+ }
+}
+
+async function addAccount(){
+ const site=$("site").value.trim();
+ const username=$("username").value.trim();
+ const password=$("password").value;
+
+ if(!site||!username||!password){
+  $("addMsg").textContent="Please complete all fields.";
+  return;
+ }
+
+ accounts.push({
+  id:crypto.randomUUID(),
+  site:site,
+  username:username,
+  password:password
+ });
+
+ try{
+  await saveVault();
+  $("site").value="";
+  $("username").value="";
+  $("password").value="";
+  $("addMsg").textContent="";
+  renderAccounts();
+ }catch(error){
+  accounts.pop();
+  $("addMsg").textContent="Could not save account.";
+ }
+}
+
+function renderAccounts(){
+ const container=$("entries");
+ container.replaceChildren();
+
+ $("count").textContent=accounts.length+" saved accounts";
+
+ if(accounts.length===0){
+  const empty=document.createElement("div");
+  empty.className="empty";
+  empty.textContent="No accounts saved yet. Add your first account above.";
+  container.appendChild(empty);
+  return;
+ }
+
+ accounts.forEach(account=>{
+  const card=document.createElement("div");
+  card.className="entry";
+
+  const top=document.createElement("div");
+  top.className="entrytop";
+
+  const details=document.createElement("div");
+  const title=document.createElement("strong");
+  title.textContent=account.site;
+
+  const user=document.createElement("small");
+  user.textContent=account.username;
+
+  details.append(title,user);
+  top.append(details);
+
+  const actions=document.createElement("div");
+  actions.className="entryactions";
+
+  const reveal=document.createElement("button");
+  reveal.className="secondary";
+  reveal.textContent="Show password";
+
+  const copy=document.createElement("button");
+  copy.className="secondary";
+  copy.textContent="Copy username";
+
+  const remove=document.createElement("button");
+  remove.className="danger";
+  remove.textContent="Delete";
+
+  reveal.onclick=()=>{
+   if(reveal.dataset.visible==="yes"){
+    reveal.textContent="Show password";
+    reveal.dataset.visible="no";
+    passwordText.textContent="Password hidden";
+   }else{
+    reveal.textContent="Hide password";
+    reveal.dataset.visible="yes";
+    passwordText.textContent=account.password;
+   }
+  };
+
+  const passwordText=document.createElement("small");
+  passwordText.textContent="Password hidden";
+
+  copy.onclick=async()=>{
+   try{
+    await navigator.clipboard.writeText(account.username);
+    copy.textContent="Copied!";
+    setTimeout(()=>copy.textContent="Copy username",1500);
+   }catch(e){
+    copy.textContent="Copy unavailable";
+   }
+  };
+
+  remove.onclick=async()=>{
+   if(!confirm("Delete this saved account?"))return;
+   const previous=accounts;
+   accounts=accounts.filter(a=>a.id!==account.id);
+   try{
+    await saveVault();
+    renderAccounts();
+   }catch(e){
+    accounts=previous;
+    renderAccounts();
+    alert("Could not delete account.");
+   }
+  };
+
+  actions.append(reveal,copy,remove);
+  card.append(top,passwordText,actions);
+  container.appendChild(card);
+ });
+}
+
+function lockVault(){
+ encryptionKey=null;
+ accounts=[];
+ $("entries").replaceChildren();
+ showScreen("unlock");
+}
+
+$("createBtn").onclick=createVault;
+$("unlockBtn").onclick=unlockVault;
+$("addBtn").onclick=addAccount;
+$("lockBtn").onclick=lockVault;
+
+function initialize(){
+ if(!window.isSecureContext || !crypto.subtle){
+  showScreen("setup");
+  $("setupMsg").textContent="Open this site using HTTPS to use encryption.";
+  return;
+ }
+
+ if(localStorage.getItem(STORAGE_KEY)){
+  showScreen("unlock");
+ }else{
+  showScreen("setup");
+ }
+}
+
+initialize();
+</script>
+</body>
+  </html>
+  
