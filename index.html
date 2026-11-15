@@ -3,65 +3,51 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AS PASS VAULT</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 *{box-sizing:border-box}
 body{
- margin:0;min-height:100vh;padding:20px;
+ margin:0;min-height:100vh;padding:18px;
  font-family:Arial,sans-serif;color:#f8fafc;
- background:
- radial-gradient(circle at 15% 15%,rgba(59,130,246,.18),transparent 35%),
- radial-gradient(circle at 85% 85%,rgba(139,92,246,.16),transparent 35%),
+ background:radial-gradient(circle at 15% 15%,#1e40af40,transparent 35%),
+ radial-gradient(circle at 85% 85%,#7c3aed30,transparent 35%),
  linear-gradient(135deg,#070b16,#10182b,#080d19);
  background-attachment:fixed
 }
-.container{max-width:600px;margin:35px auto}
-header{text-align:center;margin-bottom:28px}
-.logo{font-size:34px;font-weight:800;letter-spacing:1px}
+.container{max-width:600px;margin:30px auto}
+header{text-align:center;margin-bottom:25px}
+.logo{font-size:32px;font-weight:800}
 .logo span{color:#60a5fa}
-.subtitle{color:#94a3b8;font-size:14px}
-.card{
- background:rgba(15,23,42,.88);border:1px solid #29364d;
- border-radius:18px;padding:22px;margin-bottom:16px;
- box-shadow:0 15px 45px rgba(0,0,0,.2)
-}
-h2{font-size:20px;margin:0 0 16px}
-h3{font-size:16px;margin:0 0 12px}
-input{
- width:100%;padding:14px;margin:7px 0 13px;
- border:1px solid #334155;border-radius:10px;
- background:#0b1220;color:white;font-size:15px;outline:none
-}
+.subtitle{color:#94a3b8;font-size:13px;margin-top:7px}
+.card{background:#0f172aee;border:1px solid #29364d;border-radius:17px;padding:21px;margin-bottom:15px}
+h2{font-size:20px;margin:0 0 15px}
+h3{font-size:16px}
+input{width:100%;padding:14px;margin:7px 0 13px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:white;font-size:15px;outline:none}
 input:focus{border-color:#60a5fa}
-button{
- border:0;border-radius:10px;padding:13px 15px;
- background:#2563eb;color:white;font-weight:700;
- cursor:pointer;font-size:14px
-}
-button:disabled{opacity:.5;cursor:not-allowed}
+button{border:0;border-radius:10px;padding:13px 15px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:14px}
+button.full{width:100%;margin-top:7px}
 button.secondary{background:#263449}
 button.danger{background:#991b1b}
 button.success{background:#047857}
-button.full{width:100%;margin-top:7px}
 button.small{padding:8px 10px;font-size:12px}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.hidden{display:none!important}
-.muted{color:#94a3b8;font-size:13px;line-height:1.5}
-.account{
- border:1px solid #334155;border-radius:13px;
- padding:15px;margin:12px 0;background:#111c30
-}
-.account-top{display:flex;justify-content:space-between;gap:10px}
-.account-name{font-weight:700;overflow-wrap:anywhere}
-.account-user{color:#94a3b8;font-size:13px;margin-top:7px;overflow-wrap:anywhere}
-.password{margin-top:10px;color:#bfdbfe;overflow-wrap:anywhere}
+button:disabled{opacity:.5}
 label{font-size:13px;color:#cbd5e1}
-hr{border:0;border-top:1px solid #29364d;margin:20px 0}
-#message{padding:12px;border-radius:10px;margin:12px 0;font-size:13px;display:none}
+.muted{font-size:13px;line-height:1.5;color:#94a3b8}
+.hidden{display:none!important}
+#message{display:none;padding:12px;border-radius:10px;margin-bottom:13px;font-size:13px}
 #message.success{display:block;background:#064e3b;color:#a7f3d0}
 #message.error{display:block;background:#7f1d1d;color:#fecaca}
+.account{background:#111c30;border:1px solid #334155;border-radius:12px;padding:14px;margin:12px 0}
+.account-top,.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.account-name{font-weight:bold;overflow-wrap:anywhere}
+.account-user{color:#94a3b8;font-size:13px;margin-top:7px;overflow-wrap:anywhere}
+.password{color:#bfdbfe;margin-top:10px;overflow-wrap:anywhere}
+.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+hr{border:0;border-top:1px solid #29364d;margin:18px 0}
 footer{text-align:center;color:#64748b;font-size:12px;margin:25px}
 </style>
 </head>
@@ -76,25 +62,43 @@ footer{text-align:center;color:#64748b;font-size:12px;margin:25px}
 
 <div id="message"></div>
 
-<!-- HOME -->
-<section id="homeScreen" class="card hidden">
+<!-- AUTHENTICATION -->
+<section id="authScreen" class="card hidden">
  <h2>Welcome to AS PASS VAULT</h2>
- <p class="muted">Create a new encrypted vault or unlock an existing one.</p>
- <button class="full" onclick="showCreate()">Create New Vault</button>
- <button class="full secondary" onclick="showUnlock()">Unlock Existing Vault</button>
+ <p class="muted">Create an account or login to access your cloud vault.</p>
+
+ <label>Email Address</label>
+ <input id="authEmail" type="email" placeholder="Enter your email">
+
+ <label>Account Password</label>
+ <input id="authPassword" type="password" placeholder="Create or enter login password">
+
+ <button class="full" onclick="signUp()">Create Account</button>
+ <button class="full secondary" onclick="signIn()">Login</button>
+
+ <p class="muted">Your account password is for login. Your vault master password is separate.</p>
 </section>
 
-<!-- CREATE -->
+<!-- HOME -->
+<section id="homeScreen" class="card hidden">
+ <h2>Your Vault</h2>
+ <p class="muted">Create a new encrypted vault or unlock your existing vault.</p>
+ <button class="full" onclick="showCreate()">Create New Vault</button>
+ <button class="full secondary" onclick="showUnlock()">Unlock Existing Vault</button>
+ <button class="full secondary" onclick="logout()">Logout</button>
+</section>
+
+<!-- CREATE VAULT -->
 <section id="createScreen" class="card hidden">
  <h2>Create New Vault</h2>
- <p class="muted">Choose a strong master password. You will need it every time you unlock your vault.</p>
+ <p class="muted">Choose a separate master password. It encrypts your saved accounts.</p>
  <label>Master Password</label>
  <input id="createPassword" type="password" placeholder="At least 12 characters">
  <label>Confirm Master Password</label>
  <input id="confirmPassword" type="password" placeholder="Enter again">
  <button class="full" onclick="createVault()">Create Secure Vault</button>
  <button class="full secondary" onclick="showHome()">Back</button>
- <p class="muted">Keep your master password safe. It cannot be recovered if forgotten.</p>
+ <p class="muted">If you forget this password, your encrypted vault cannot be recovered.</p>
 </section>
 
 <!-- UNLOCK -->
@@ -105,18 +109,18 @@ footer{text-align:center;color:#64748b;font-size:12px;margin:25px}
  <button class="full" onclick="unlockVault()">Unlock Vault</button>
  <button class="full secondary" onclick="showHome()">Back</button>
  <hr>
- <h3>New user or want a fresh vault?</h3>
- <button class="full secondary" onclick="showCreate()">Create New Vault</button>
+ <button class="full secondary" onclick="showCreate()">Create New Vault / Replace</button>
 </section>
 
-<!-- VAULT -->
+<!-- MAIN VAULT -->
 <section id="vaultScreen" class="hidden">
+
  <div class="card">
-  <div class="account-top">
+  <div class="row">
    <h2>My Vault</h2>
    <button class="small secondary" onclick="lockVault()">Lock</button>
   </div>
-  <p class="muted">Your accounts are encrypted and stored on this device.</p>
+  <p class="muted" id="syncStatus">Encrypted vault</p>
   <input id="searchInput" placeholder="Search website or username..." oninput="renderAccounts()">
   <div id="accountList"></div>
   <p id="emptyMessage" class="muted">No accounts saved yet.</p>
@@ -133,33 +137,53 @@ footer{text-align:center;color:#64748b;font-size:12px;margin:25px}
  </div>
 
  <div class="card">
-  <h2>Backup & Restore</h2>
-  <p class="muted">Download an encrypted backup or restore one from a JSON file.</p>
-  <button class="full success" onclick="downloadBackup()">Download Encrypted Backup</button>
+  <h2>Encrypted Backup</h2>
+  <button class="full success" onclick="downloadBackup()">Download Backup</button>
   <hr>
-  <label>Select Backup File</label>
+  <label>Choose Backup File</label>
   <input id="restoreFile" type="file" accept=".json,application/json">
   <label>Backup Master Password</label>
-  <input id="restorePassword" type="password" placeholder="Enter backup master password">
+  <input id="restorePassword" type="password" placeholder="Backup master password">
   <button class="full secondary" onclick="restoreBackup()">Restore Backup</button>
  </div>
 
  <div class="card">
   <h2>Vault Settings</h2>
-  <p class="muted">Auto-lock activates after 5 minutes of inactivity or when you leave this browser tab.</p>
+  <p class="muted">Auto-lock after 5 minutes of inactivity or when this tab becomes hidden.</p>
   <button class="full danger" onclick="createFreshVault()">Create New Vault / Reset</button>
-  <p class="muted">This replaces the current vault. Export a backup first if you want to keep its accounts.</p>
+  <button class="full secondary" onclick="logout()">Logout Account</button>
  </div>
+
 </section>
 
-<footer>AS PASS VAULT · Private by design</footer>
+<footer>AS PASS VAULT · Encrypted storage</footer>
 </div>
 
 <script>
+// ======================================
+// 1. SUPABASE CONFIGURATION
+// ======================================
+
+// Paste your own Supabase Project URL and Publishable Key here.
+const SUPABASE_URL = "https://vytsadvabynkebtyecgh.supabase.co";
+const SUPABASE_KEY = "sb_publishable_hmX0N5tRnJPeu4iYuwQgeQ_bhxZ8IFZ";
+
+if(!window.supabase){
+ alert("Supabase library could not load. Check your internet connection.");
+}
+
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// ======================================
+// 2. APP VARIABLES
+// ======================================
+
 const STORAGE_KEY = "as_pass_vault_encrypted_v1";
 const ITERATIONS = 310000;
 
+let currentUser = null;
 let vaultKey = null;
+let currentVaultRecord = null;
 let accounts = [];
 let locked = true;
 let autoLockTimer = null;
@@ -172,12 +196,17 @@ function showMessage(text,type="success"){
  box.className=type;
  box.style.display="block";
  clearTimeout(showMessage.timer);
- showMessage.timer=setTimeout(()=>box.style.display="none",4000);
+ showMessage.timer=setTimeout(()=>box.style.display="none",5000);
 }
 
 function hideScreens(){
- ["homeScreen","createScreen","unlockScreen","vaultScreen"]
+ ["authScreen","homeScreen","createScreen","unlockScreen","vaultScreen"]
  .forEach(id=>$(id).classList.add("hidden"));
+}
+
+function showAuth(){
+ hideScreens();
+ $("authScreen").classList.remove("hidden");
 }
 
 function showHome(){
@@ -202,18 +231,108 @@ function showVault(){
  startAutoLock();
 }
 
+// ======================================
+// 3. AUTHENTICATION
+// ======================================
+
+async function signUp(){
+ const email=$("authEmail").value.trim();
+ const password=$("authPassword").value;
+
+ if(!email||password.length<8){
+  showMessage("Enter a valid email and an account password of at least 8 characters.","error");
+  return;
+ }
+
+ const {data,error}=await db.auth.signUp({email,password});
+
+ if(error){
+  showMessage(error.message,"error");
+  return;
+ }
+
+ if(data.session){
+  currentUser=data.user;
+  await prepareVault();
+ }else{
+  showMessage("Account created. Check your email to confirm, then login.");
+ }
+}
+
+async function signIn(){
+ const email=$("authEmail").value.trim();
+ const password=$("authPassword").value;
+
+ if(!email||!password){
+  showMessage("Enter your email and account password.","error");
+  return;
+ }
+
+ const {data,error}=await db.auth.signInWithPassword({email,password});
+
+ if(error){
+  showMessage(error.message,"error");
+  return;
+ }
+
+ currentUser=data.user;
+ await prepareVault();
+}
+
+async function logout(){
+ lockMemory();
+ await db.auth.signOut();
+ currentUser=null;
+ currentVaultRecord=null;
+ showAuth();
+ showMessage("You have logged out.");
+}
+
+// ======================================
+// 4. LOAD CLOUD / LOCAL VAULT
+// ======================================
+
+async function prepareVault(){
+ hideScreens();
+ showMessage("Checking your encrypted vault...");
+
+ try{
+  const {data,error}=await db
+   .from("vaults")
+   .select("encrypted_payload,updated_at")
+   .eq("user_id",currentUser.id)
+   .maybeSingle();
+
+  if(error) throw error;
+
+  const localRaw=localStorage.getItem(STORAGE_KEY);
+  const localRecord=localRaw?JSON.parse(localRaw):null;
+
+  if(data && data.encrypted_payload){
+   currentVaultRecord=data.encrypted_payload;
+   showUnlock();
+   showMessage("Cloud vault found. Enter your master password.");
+  }else if(localRecord){
+   currentVaultRecord=localRecord;
+   showUnlock();
+   showMessage("Local vault found. Unlock to upload its encrypted copy.");
+  }else{
+   currentVaultRecord=null;
+   showHome();
+   showMessage("Welcome! Create your first vault.");
+  }
+ }catch(error){
+  showAuth();
+  showMessage("Could not load cloud vault: "+error.message,"error");
+ }
+}
+
+// ======================================
+// 5. ENCRYPTION
+// ======================================
+
 function randomBytes(length){
  return crypto.getRandomValues(new Uint8Array(length));
-}
-
-function arrayToBase64(bytes){
- let binary="";
- bytes.forEach(b=>binary+=String.fromCharCode(b));
- return btoa(binary);
-}
-
-function base64ToArray(value){
- return Uint8Array.from(atob(value),c=>c.charCodeAt(0));
 }
 
 async function deriveKey(password,salt){
@@ -221,18 +340,24 @@ async function deriveKey(password,salt){
   "raw",new TextEncoder().encode(password),
   "PBKDF2",false,["deriveKey"]
  );
+
  return crypto.subtle.deriveKey(
   {name:"PBKDF2",salt,iterations:ITERATIONS,hash:"SHA-256"},
-  material,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]
+  material,
+  {name:"AES-GCM",length:256},
+  false,
+  ["encrypt","decrypt"]
  );
 }
 
 async function encryptAccounts(data,key){
  const iv=randomBytes(12);
  const encrypted=await crypto.subtle.encrypt(
-  {name:"AES-GCM",iv},key,
+  {name:"AES-GCM",iv},
+  key,
   new TextEncoder().encode(JSON.stringify(data))
  );
+
  return {
   version:1,
   iv:Array.from(iv),
@@ -243,114 +368,188 @@ async function encryptAccounts(data,key){
 async function decryptAccounts(encrypted,key){
  const decrypted=await crypto.subtle.decrypt(
   {name:"AES-GCM",iv:new Uint8Array(encrypted.iv)},
-  key,new Uint8Array(encrypted.data)
+  key,
+  new Uint8Array(encrypted.data)
  );
+
  const result=JSON.parse(new TextDecoder().decode(decrypted));
+
  if(!Array.isArray(result)) throw new Error("Invalid vault data");
+
  return result;
 }
 
-function readStoredVault(){
- const raw=localStorage.getItem(STORAGE_KEY);
- return raw ? JSON.parse(raw) : null;
+// ======================================
+// 6. CLOUD SYNC
+// ======================================
+
+async function uploadCloud(record){
+ if(!currentUser) throw new Error("Please login first.");
+
+ const {error}=await db.from("vaults").upsert({
+  user_id:currentUser.id,
+  encrypted_payload:record,
+  updated_at:new Date().toISOString()
+ },{onConflict:"user_id"});
+
+ if(error) throw error;
+
+ $("syncStatus").textContent="Cloud Sync: Saved successfully";
 }
 
 async function persistVault(){
- if(!vaultKey) throw new Error("Vault is locked");
- const stored=readStoredVault();
+ if(!vaultKey||!currentVaultRecord) throw new Error("Vault is locked.");
+
  const encrypted=await encryptAccounts(accounts,vaultKey);
+
  const record={
   version:1,
-  salt:stored.salt,
+  salt:currentVaultRecord.salt,
   encrypted
  };
+
+ // Save encrypted data locally first.
  localStorage.setItem(STORAGE_KEY,JSON.stringify(record));
+ currentVaultRecord=record;
+
+ // Then sync encrypted data to cloud.
+ try{
+  await uploadCloud(record);
+  return true;
+ }catch(error){
+  $("syncStatus").textContent="Cloud Sync failed. Local copy saved.";
+  showMessage("Local save succeeded, but cloud sync failed: "+error.message,"error");
+  return false;
+ }
 }
 
+// ======================================
+// 7. CREATE / UNLOCK VAULT
+// ======================================
+
 async function createVault(){
- if(!window.crypto?.subtle){
-  showMessage("Secure encryption requires HTTPS.", "error");
+ if(!crypto.subtle){
+  showMessage("Secure encryption requires HTTPS.","error");
   return;
  }
+
  const password=$("createPassword").value;
- const confirm=$("confirmPassword").value;
+ const confirmPassword=$("confirmPassword").value;
 
  if(password.length<12){
   showMessage("Master password must be at least 12 characters.","error");
   return;
  }
- if(password!==confirm){
-  showMessage("Passwords do not match.","error");
+
+ if(password!==confirmPassword){
+  showMessage("Master passwords do not match.","error");
   return;
  }
 
- if(localStorage.getItem(STORAGE_KEY)){
-  if(!confirmReplace()) return;
+ if(currentVaultRecord &&
+ !window.confirm("This will replace your existing vault. Continue?")){
+  return;
  }
 
  try{
   const salt=randomBytes(16);
   const key=await deriveKey(password,salt);
   const encrypted=await encryptAccounts([],key);
-  const record={version:1,salt:Array.from(salt),encrypted};
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(record));
+
+  const record={
+   version:1,
+   salt:Array.from(salt),
+   encrypted
+  };
 
   vaultKey=key;
+  currentVaultRecord=record;
   accounts=[];
   locked=false;
+
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(record));
+
   $("createPassword").value="";
   $("confirmPassword").value="";
-  showVault();
-  showMessage("Your new vault has been created!");
- }catch(error){
-  showMessage("Could not create vault. Check browser storage.","error");
- }
-}
 
-function confirmReplace(){
- return window.confirm(
-  "Create a new vault? This will permanently replace the current local vault. Download a backup first if you need the old data."
- );
+  showVault();
+
+  try{
+   await uploadCloud(record);
+   showMessage("New encrypted cloud vault created!");
+  }catch(error){
+   showMessage("Local vault created, but cloud sync failed: "+error.message,"error");
+  }
+
+ }catch(error){
+  showMessage("Could not create vault: "+error.message,"error");
+ }
 }
 
 async function unlockVault(){
- if(!window.crypto?.subtle){
+ if(!crypto.subtle){
   showMessage("Secure encryption requires HTTPS.","error");
   return;
  }
+
  const password=$("unlockPassword").value;
+
  if(!password){
   showMessage("Enter your master password.","error");
   return;
  }
 
- try{
-  const stored=readStoredVault();
-  if(!stored) throw new Error("No vault found");
+ if(!currentVaultRecord){
+  showMessage("No vault found. Create a new vault first.","error");
+  return;
+ }
 
-  const key=await deriveKey(password,new Uint8Array(stored.salt));
-  const data=await decryptAccounts(stored.encrypted,key);
+ try{
+  const key=await deriveKey(
+   password,
+   new Uint8Array(currentVaultRecord.salt)
+  );
+
+  const decrypted=await decryptAccounts(currentVaultRecord.encrypted,key);
 
   vaultKey=key;
-  accounts=data;
+  accounts=decrypted;
   locked=false;
+
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(currentVaultRecord));
   $("unlockPassword").value="";
+
   showVault();
-  showMessage("Vault unlocked successfully!");
+
+  // Upload a pre-existing local vault after successful unlock.
+  try{
+   await uploadCloud(currentVaultRecord);
+   showMessage("Vault unlocked and cloud sync is active!");
+  }catch(error){
+   showMessage("Vault unlocked locally. Cloud sync failed: "+error.message,"error");
+  }
+
  }catch(error){
-  showMessage("Incorrect password or damaged vault.","error");
+  showMessage("Incorrect master password or damaged vault.","error");
  }
 }
 
-function lockVault(){
+// ======================================
+// 8. LOCK / AUTO LOCK
+// ======================================
+
+function lockMemory(){
  clearTimeout(autoLockTimer);
  vaultKey=null;
  accounts=[];
  locked=true;
  resetForm();
+}
+
+function lockVault(){
+ lockMemory();
  $("searchInput").value="";
- hideScreens();
- $("unlockScreen").classList.remove("hidden");
+ showUnlock();
  showMessage("Vault locked.");
 }
 
@@ -370,8 +569,12 @@ function resetAutoLock(){
 });
 
 document.addEventListener("visibilitychange",()=>{
- if(document.hidden && !locked) lockVault();
+ if(document.hidden&&!locked) lockVault();
 });
+
+// ======================================
+// 9. ACCOUNT MANAGEMENT
+// ======================================
 
 function resetForm(){
  $("siteInput").value="";
@@ -384,6 +587,7 @@ function resetForm(){
 
 async function saveAccount(){
  if(locked) return;
+
  const site=$("siteInput").value.trim();
  const username=$("usernameInput").value.trim();
  const password=$("passwordInput").value;
@@ -404,38 +608,33 @@ async function saveAccount(){
   });
  }
 
- try{
-  await persistVault();
-  resetForm();
-  renderAccounts();
-  showMessage("Account saved securely!");
- }catch(error){
-  showMessage("Could not save. Check device storage.","error");
- }
+ await persistVault();
+ resetForm();
+ renderAccounts();
+ showMessage("Account saved.");
 }
 
 function editAccount(id){
  const item=accounts.find(a=>a.id===id);
  if(!item) return;
+
  $("siteInput").value=item.site;
  $("usernameInput").value=item.username;
  $("passwordInput").value=item.password;
  $("editId").value=id;
  $("formTitle").textContent="Edit Account";
  $("cancelEdit").classList.remove("hidden");
+
  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
 }
 
 async function deleteAccount(id){
- if(!confirm("Delete this saved account?")) return;
+ if(!window.confirm("Delete this account?")) return;
+
  accounts=accounts.filter(a=>a.id!==id);
- try{
-  await persistVault();
-  renderAccounts();
-  showMessage("Account deleted.");
- }catch(error){
-  showMessage("Could not save changes.","error");
- }
+ await persistVault();
+ renderAccounts();
+ showMessage("Account deleted.");
 }
 
 async function copyText(value){
@@ -443,13 +642,14 @@ async function copyText(value){
   await navigator.clipboard.writeText(value);
   showMessage("Copied to clipboard.");
  }catch(error){
-  showMessage("Clipboard unavailable. Use a secure HTTPS page.","error");
+  showMessage("Clipboard unavailable. Use HTTPS.","error");
  }
 }
 
 function renderAccounts(){
  const list=$("accountList");
  list.innerHTML="";
+
  const search=$("searchInput").value.toLowerCase().trim();
 
  const filtered=accounts.filter(a=>
@@ -470,23 +670,25 @@ function renderAccounts(){
   name.className="account-name";
   name.textContent=item.site;
 
-  const username=document.createElement("div");
-  username.className="account-user";
-  username.textContent=item.username;
-
   const password=document.createElement("div");
   password.className="password";
   password.textContent="••••••••••";
 
-  let visible=false;
   const reveal=document.createElement("button");
   reveal.className="small secondary";
   reveal.textContent="Show";
+
+  let visible=false;
+
   reveal.onclick=()=>{
    visible=!visible;
    password.textContent=visible?item.password:"••••••••••";
    reveal.textContent=visible?"Hide":"Show";
   };
+
+  const username=document.createElement("div");
+  username.className="account-user";
+  username.textContent=item.username;
 
   top.append(name,reveal);
   div.append(top,username,password);
@@ -494,115 +696,48 @@ function renderAccounts(){
   const actions=document.createElement("div");
   actions.className="actions";
 
-  const copyUser=document.createElement("button");
-  copyUser.className="small secondary";
-  copyUser.textContent="Copy Username";
-  copyUser.onclick=()=>copyText(item.username);
+  function addButton(label,callback,style="secondary"){
+   const b=document.createElement("button");
+   b.className="small "+style;
+   b.textContent=label;
+   b.onclick=callback;
+   actions.append(b);
+  }
 
-  const copyPass=document.createElement("button");
-  copyPass.className="small secondary";
-  copyPass.textContent="Copy Password";
-  copyPass.onclick=()=>copyText(item.password);
+  addButton("Copy Username",()=>copyText(item.username));
+  addButton("Copy Password",()=>copyText(item.password));
+  addButton("Edit",()=>editAccount(item.id));
+  addButton("Delete",()=>deleteAccount(item.id),"danger");
 
-  const edit=document.createElement("button");
-  edit.className="small secondary";
-  edit.textContent="Edit";
-  edit.onclick=()=>editAccount(item.id);
-
-  const del=document.createElement("button");
-  del.className="small danger";
-  del.textContent="Delete";
-  del.onclick=()=>deleteAccount(item.id);
-
-  actions.append(copyUser,copyPass,edit,del);
   div.append(actions);
   list.append(div);
  });
 }
 
+// ======================================
+// 10. BACKUP / RESTORE
+// ======================================
+
 function downloadBackup(){
  if(locked) return;
- try{
-  const record=readStoredVault();
-  const backup={
-   format:"AS_PASS_VAULT_BACKUP",
-   version:1,
-   vault:record
-  };
-  const blob=new Blob([JSON.stringify(backup)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement("a");
-  link.href=url;
-  link.download="AS-PASS-VAULT-BACKUP.json";
-  link.click();
-  URL.revokeObjectURL(url);
-  showMessage("Encrypted backup downloaded.");
- }catch(error){
-  showMessage("Backup download failed.","error");
- }
-}
 
-async function restoreBackup(){
- if(locked) return;
+ const backup={
+  format:"AS_PASS_VAULT_BACKUP",
+  version:1,
+  vault:currentVaultRecord
+ };
 
- const file=$("restoreFile").files[0];
- const password=$("restorePassword").value;
+ const blob=new Blob(
+  [JSON.stringify(backup)],
+  {type:"application/json"}
+ );
 
- if(!file||!password){
-  showMessage("Select a backup and enter its master password.","error");
-  return;
- }
+ const url=URL.createObjectURL(blob);
+ const link=document.createElement("a");
 
- try{
-  const backup=JSON.parse(await file.text());
-  if(backup.format!=="AS_PASS_VAULT_BACKUP"||
-     backup.version!==1||!backup.vault){
-   throw new Error("Invalid backup");
-  }
+ link.href=url;
+ link.download="AS-PASS-VAULT-BACKUP.json";
+ link.click();
 
-  const imported=backup.vault;
-  const key=await deriveKey(password,new Uint8Array(imported.salt));
-  const restored=await decryptAccounts(imported.encrypted,key);
-
-  if(!confirm("Restore this backup? Your current vault will be replaced.")) return;
-
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(imported));
-  vaultKey=key;
-  accounts=restored;
-  $("restorePassword").value="";
-  $("restoreFile").value="";
-  renderAccounts();
-  showMessage("Backup restored successfully!");
- }catch(error){
-  showMessage("Restore failed. Check file and backup password.","error");
- }
-}
-
-async function createFreshVault(){
- if(!confirmReplace()) return;
- lockVault();
- localStorage.removeItem(STORAGE_KEY);
- showCreate();
- showMessage("Create your new vault.");
-}
-
-function initialize(){
- if(!window.crypto?.subtle){
-  showHome();
-  showMessage("Please open this website using HTTPS for secure encryption.","error");
-  return;
- }
- try{
-  const stored=readStoredVault();
-  if(stored) showUnlock();
-  else showHome();
- }catch(error){
-  showHome();
-  showMessage("Vault data could not be read. Do not overwrite it before checking your backup.","error");
- }
-}
-
-initialize();
-</script>
-</body>
- </html>
+ URL.revokeObjectURL(url);
+ showMessage
