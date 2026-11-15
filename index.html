@@ -165,8 +165,8 @@ footer{text-align:center;color:#64748b;font-size:12px;margin:25px}
 // ======================================
 
 // Paste your own Supabase Project URL and Publishable Key here.
-const SUPABASE_URL = "https://vytsadvabynkebtyecgh.supabase.co";
-const SUPABASE_KEY = "sb_publishable_hmX0N5tRnJPeu4iYuwQgeQ_bhxZ8IFZ";
+const SUPABASE_URL = "PASTE_YOUR_PROJECT_URL_HERE";
+const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
 
 if(!window.supabase){
  alert("Supabase library could not load. Check your internet connection.");
@@ -740,4 +740,88 @@ function downloadBackup(){
  link.click();
 
  URL.revokeObjectURL(url);
- showMessage
+ showMessage("Encrypted backup downloaded.");
+}
+ async function restoreBackup(){
+ if(locked) return;
+
+ const file=$("restoreFile").files[0];
+ const password=$("restorePassword").value;
+
+ if(!file||!password){
+  showMessage("Select a backup file and enter its master password.","error");
+  return;
+ }
+try{
+  const backup=JSON.parse(await file.text());
+
+  if(backup.format!=="AS_PASS_VAULT_BACKUP"||
+     backup.version!==1||!backup.vault){
+   throw new Error("Invalid backup file");
+ }
+ const imported=backup.vault;
+
+  const key=await deriveKey(
+   password,
+   new Uint8Array(imported.salt)
+  );
+ const restored=await decryptAccounts(imported.encrypted,key);
+
+ if(!window.confirm("Replace your current vault with this backup?")) return;
+
+  vaultKey=key;
+  accounts=restored;
+  currentVaultRecord=imported;
+ 
+localStorage.setItem(STORAGE_KEY,JSON.stringify(imported));
+ $("restorePassword").value="";
+  $("restoreFile").value="";
+ try{
+   await uploadCloud(imported);
+   showMessage("Backup restored and synced to cloud!");
+  }catch(error){
+   showMessage("Backup restored locally, but cloud sync failed: "+error.message,"error");
+  }
+
+  renderAccounts();
+  }catch(error){
+  showMessage("Restore failed. Check the backup and master password.","error");
+ }
+  }
+// ======================================
+// 11. NEW VAULT / INITIALIZE
+// ======================================
+
+ function createFreshVault(){
+ if(!window.confirm("Replace your current vault? Download a backup first if needed.")) return;
+  
+ lockMemory();
+ currentVaultRecord=null;
+ localStorage.removeItem(STORAGE_KEY);
+ showCreate();
+ }
+ async function initialize(){
+ if(!crypto.subtle){
+  showAuth();
+  showMessage("Open this website over HTTPS to use encryption.","error");
+  return;
+ }
+  const {data,error}=await db.auth.getSession();
+
+ if(error){
+  showAuth();
+  showMessage(error.message,"error");
+  return;
+ }
+
+ if(data.session){
+  currentUser=data.session.user;
+  await prepareVault();
+ }else{
+  showAuth();
+ }
+ }
+ initialize();
+</script>
+</body>
+</html>
