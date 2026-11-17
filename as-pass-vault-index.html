@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d19">
+<title>AS PASS VAULT</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;padding:18px;font-family:Arial,sans-serif;color:#f8fafc;background:radial-gradient(circle at 15% 15%,#1e40af40,transparent 35%),radial-gradient(circle at 85% 85%,#7c3aed30,transparent 35%),linear-gradient(135deg,#070b16,#10182b,#080d19);background-attachment:fixed}
+.container{max-width:600px;margin:30px auto}
+header{text-align:center;margin-bottom:25px}
+.logo{font-size:32px;font-weight:800}.logo span{color:#60a5fa}
+.subtitle{color:#94a3b8;font-size:13px;margin-top:7px}
+.card{background:#0f172aee;border:1px solid #29364d;border-radius:17px;padding:21px;margin-bottom:15px}
+h2{font-size:20px;margin:0 0 15px}
+input{width:100%;padding:14px;margin:7px 0 13px;border:1px solid #334155;border-radius:10px;background:#0b1220;color:white;font-size:15px;outline:none}
+input:focus{border-color:#60a5fa}
+button{border:0;border-radius:10px;padding:13px 15px;background:#2563eb;color:white;font-weight:bold;cursor:pointer;font-size:14px}
+button.full{width:100%;margin-top:7px}
+button.secondary{background:#263449}button.danger{background:#991b1b}button.success{background:#047857}
+button.small{padding:8px 10px;font-size:12px}button:disabled{opacity:.5;cursor:not-allowed}
+label{font-size:13px;color:#cbd5e1}
+.muted{font-size:13px;line-height:1.5;color:#94a3b8}
+.hidden{display:none!important}
+#message{display:none;padding:12px;border-radius:10px;margin-bottom:13px;font-size:13px;line-height:1.5}
+#message.success{display:block;background:#064e3b;color:#a7f3d0}
+#message.error{display:block;background:#7f1d1d;color:#fecaca}
+.account{background:#111c30;border:1px solid #334155;border-radius:12px;padding:14px;margin:12px 0}
+.account-top,.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.account-name{font-weight:bold;overflow-wrap:anywhere}
+.account-user{color:#94a3b8;font-size:13px;margin-top:7px;overflow-wrap:anywhere}
+.password{color:#bfdbfe;margin-top:10px;overflow-wrap:anywhere;word-break:break-word}
+.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+hr{border:0;border-top:1px solid #29364d;margin:18px 0}
+footer{text-align:center;color:#64748b;font-size:12px;margin:25px}
+.notice{padding:11px;border:1px solid #475569;border-radius:10px;color:#cbd5e1;font-size:12px;line-height:1.5}
+@media(max-width:480px){body{padding:12px}.container{margin:15px auto}.card{padding:17px}.logo{font-size:28px}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <div class="logo">AS <span>PASS</span> VAULT</div>
+  <div class="subtitle">Your private encrypted password vault</div>
+</header>
+
+<div id="message" role="status" aria-live="polite"></div>
+
+<section id="authScreen" class="card hidden">
+  <h2>Welcome to AS PASS VAULT</h2>
+  <p class="muted">Create an account or login to access your encrypted cloud vault.</p>
+  <label for="authEmail">Email Address</label>
+  <input id="authEmail" type="email" autocomplete="email" placeholder="Enter your email">
+  <label for="authPassword">Account Password</label>
+  <input id="authPassword" type="password" autocomplete="current-password" placeholder="Create or enter login password">
+  <button class="full" onclick="signUp()">Create Account</button>
+  <button class="full secondary" onclick="signIn()">Login</button>
+  <p class="muted">Your account password is only for login. Your vault master password is separate.</p>
+</section>
+
+<section id="homeScreen" class="card hidden">
+  <h2>Your Vault</h2>
+  <p class="muted">Create a new encrypted vault or unlock your existing vault.</p>
+  <button class="full" onclick="showCreate()">Create New Vault</button>
+  <button class="full secondary" onclick="showUnlock()">Unlock Existing Vault</button>
+  <button class="full secondary" onclick="logout()">Logout</button>
+</section>
+
+<section id="createScreen" class="card hidden">
+  <h2>Create New Vault</h2>
+  <p class="muted">Choose a separate master password. It encrypts your saved accounts.</p>
+  <label for="createPassword">Master Password</label>
+  <input id="createPassword" type="password" autocomplete="new-password" placeholder="At least 12 characters">
+  <label for="confirmPassword">Confirm Master Password</label>
+  <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Enter again">
+  <button id="createVaultBtn" class="full" onclick="createVault()">Create Secure Vault</button>
+  <button class="full secondary" onclick="showHome()">Back</button>
+  <p class="muted">If you forget this password, your encrypted vault cannot be recovered by account login or by us.</p>
+</section>
+
+<section id="unlockScreen" class="card hidden">
+  <h2>Unlock Your Vault</h2>
+  <label for="unlockPassword">Master Password</label>
+  <input id="unlockPassword" type="password" autocomplete="current-password" placeholder="Enter master password">
+  <button class="full" onclick="unlockVault()">Unlock Vault</button>
+  <button class="full secondary" onclick="showHome()">Back</button>
+  <hr>
+  <button class="full secondary" onclick="showCreate()">Create New Vault / Replace</button>
+</section>
+
+<section id="vaultScreen" class="hidden">
+  <div class="card">
+    <div class="row"><h2>My Vault</h2><button class="small secondary" onclick="lockVault()">Lock</button></div>
+    <p class="muted" id="syncStatus">Encrypted vault</p>
+    <input id="searchInput" placeholder="Search website or username..." oninput="renderAccounts()">
+    <div id="accountList"></div>
+    <p id="emptyMessage" class="muted">No accounts saved yet.</p>
+  </div>
+  <div class="card">
+    <h2 id="formTitle">Add Account</h2>
+    <label for="siteInput">Website / App</label>
+    <input id="siteInput" autocomplete="off" placeholder="Website / App name">
+    <label for="usernameInput">Username</label>
+    <input id="usernameInput" autocomplete="off" placeholder="Username / Email">
+    <label for="passwordInput">Password</label>
+    <input id="passwordInput" type="password" autocomplete="new-password" placeholder="Password">
+    <input id="editId" type="hidden">
+    <button class="full" onclick="saveAccount()">Save Account</button>
+    <button id="cancelEdit" class="full secondary hidden" onclick="resetForm()">Cancel Edit</button>
+  </div>
+  <div class="card">
+    <h2>Encrypted Backup</h2>
+    <p class="muted">The backup file contains encrypted data, not a readable list of passwords. Keep the file private.</p>
+    <button class="full success" onclick="downloadBackup()">Download Backup</button>
+    <hr>
+    <label for="restoreFile">Choose Backup File</label>
+    <input id="restoreFile" type="file" accept=".json,application/json">
+    <label for="restorePassword">Backup Master Password</label>
+    <input id="restorePassword" type="password" autocomplete="current-password" placeholder="Backup master password">
+    <button class="full secondary" onclick="restoreBackup()">Restore Backup</button>
+  </div>
+  <div class="card">
+    <h2>Vault Settings</h2>
+    <p class="muted">Auto-lock after 5 minutes without activity or when this tab becomes hidden.</p>
+    <button class="full danger" onclick="createFreshVault()">Create New Vault / Reset</button>
+    <button class="full secondary" onclick="logout()">Logout Account</button>
+  </div>
+  <p class="notice">Security note: while unlocked, passwords exist in this browser tab's memory. Copied values may remain in your device clipboard. This project has not had an independent security audit.</p>
+</section>
+
+<footer>AS PASS VAULT · Encrypted storage</footer>
+</div>
+
+<script>
+"use strict";
+
+// 1. SUPABASE CONFIGURATION
+const SUPABASE_URL = "PASTE_YOUR_PROJECT_URL_HERE";
+const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
+const ITERATIONS = 310000;
+const LEGACY_STORAGE_KEY = "as_pass_vault_encrypted_v1";
+
+let db = null;
+let currentUser = null;
+let vaultKey = null;
+let currentVaultRecord = null;
+let accounts = [];
+let locked = true;
+let autoLockTimer = null;
+let busy = false;
+
+const $ = id => document.getElementById(id);
+const userStorageKey = () => currentUser ? `as_pass_vault_encrypted_v1_${currentUser.id}` : null;
+
+function showMessage(message, type="success") {
+  const box = $("message");
+  box.textContent = message;
+  box.className = type;
+  box.style.display = "block";
+  clearTimeout(showMessage.timer);
+  showMessage.timer = setTimeout(() => { box.style.display = "none"; }, 6000);
+}
+function setBusy(value) {
+  busy = value;
+  document.querySelectorAll("button").forEach(button => {
+    button.disabled = value;
+  });
+}
+function hideScreens() {
+  ["authScreen","homeScreen","createScreen","unlockScreen","vaultScreen"].forEach(id => $(id).classList.add("hidden"));
+}
+function showAuth() { hideScreens(); $("authScreen").classList.remove("hidden"); }
+function showHome() { hideScreens(); $("homeScreen").classList.remove("hidden"); }
+function showCreate() { hideScreens(); $("createScreen").classList.remove("hidden"); }
+function showUnlock() { hideScreens(); $("unlockScreen").classList.remove("hidden"); }
+function showVault() {
+  hideScreens();
+  $("vaultScreen").classList.remove("hidden");
+  renderAccounts();
+  startAutoLock();
+}
+function clearSecretsFromForms() {
+  ["authPassword","createPassword","confirmPassword","unlockPassword","restorePassword","passwordInput"].forEach(id => {
+    if ($(id)) $(id).value = "";
+  });
+}
+function lockMemory() {
+  clearTimeout(autoLockTimer);
+  vaultKey = null;
+  accounts = [];
+  locked = true;
+  resetForm();
+  $("accountList").replaceChildren();
+  $("searchInput").value = "";
+}
+function resetAppState() {
+  lockMemory();
+  currentUser = null;
+  currentVaultRecord = null;
+  $("syncStatus").textContent = "Encrypted vault";
+  clearSecretsFromForms();
+}
+
+// 2. AUTHENTICATION
+async function signUp() {
+  if (busy) return;
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  if (!email || password.length < 8) {
+    showMessage("Enter a valid email and an account password of at least 8 characters.", "error");
+    return;
+  }
+  try {
+    setBusy(true);
+    const { data, error } = await db.auth.signUp({ email, password });
+    if (error) throw error;
+    $("authPassword").value = "";
+    if (data.session && data.user) {
+      currentUser = data.user;
+      await prepareVault();
+    } else {
+      showAuth();
+      showMessage("Account created. Check your email to confirm it, then log in.");
+    }
+  } catch (error) {
+    showMessage("Signup failed: " + error.message, "error");
+  } finally { setBusy(false); }
+}
+async function signIn() {
+  if (busy) return;
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  if (!email || !password) {
+    showMessage("Enter your email and account password.", "error");
+    return;
+  }
+  try {
+    setBusy(true);
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    $("authPassword").value = "";
+    currentUser = data.user;
+    await prepareVault();
+  } catch (error) {
+    showMessage("Login failed: " + error.message, "error");
+  } finally { setBusy(false); }
+}
+async function logout() {
+  if (busy) return;
+  try {
+    setBusy(true);
+    const { error } = await db.auth.signOut();
+    if (error) throw error;
+    resetAppState();
+    showAuth();
+    showMessage("You have logged out.");
+  } catch (error) {
+    showMessage("Logout failed: " + error.message, "error");
+  } finally { setBusy(false); }
+}
+
+// 3. LOAD CLOUD / USER-SCOPED LOCAL VAULT
+async function prepareVault() {
+  if (!currentUser) { showAuth(); return; }
+  hideScreens();
+  showMessage("Checking your encrypted vault...");
+  try {
+    const { data, error } = await db.from("vaults")
+      .select("encrypted_payload,updated_at")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
+    if (error) throw error;
+
+    const key = userStorageKey();
+    let localRecord = null;
+    const localRaw = localStorage.getItem(key);
+    if (localRaw) {
+      try { localRecord = JSON.parse(localRaw); }
+      catch (_) { localStorage.removeItem(key); }
+    }
+
+    if (data && data.encrypted_payload) {
+      currentVaultRecord = data.encrypted_payload;
+      showUnlock();
+      showMessage("Cloud vault found. Enter your master password.");
+    } else if (localRecord && isVaultRecord(localRecord)) {
+      currentVaultRecord = localRecord;
+      showUnlock();
+      showMessage("Encrypted local vault found. Unlock it to sync to cloud.");
+    } else {
+      currentVaultRecord = null;
+      showHome();
+      showMessage("Welcome! Create your first vault.");
+    }
+  } catch (error) {
+    showAuth();
+    showMessage("Could not load cloud vault: " + error.message, "error");
+  }
+}
+
+// 4. ENCRYPTION
+function randomBytes(length) { return crypto.getRandomValues(new Uint8Array(length)); }
+async function deriveKey(password, salt) {
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
+    material, { name: "AES-GCM", length: 256 }, false, ["encrypt","decrypt"]
+  );
+}
+async function encryptAccounts(data, key) {
+  const iv = randomBytes(12);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv }, key,
+    new TextEncoder().encode(JSON.stringify(data))
+  );
+  return { version: 1, iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) };
+}
+function isByteArray(value, exactLength) {
+  return Array.isArray(value) && (exactLength == null || value.length === exactLength) &&
+    value.every(n => Number.isInteger(n) && n >= 0 && n <= 255);
+}
+function isVaultRecord(record) {
+  return !!record && record.version === 1 &&
+    isByteArray(record.salt, 16) &&
+    !!record.encrypted && record.encrypted.version === 1 &&
+    isByteArray(record.encrypted.iv, 12) &&
+    isByteArray(record.encrypted.data) && record.encrypted.data.length >= 16;
+}
+async function decryptAccounts(record, key) {
+  if (!isVaultRecord(record)) throw new Error("Invalid encrypted vault format.");
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: new Uint8Array(record.encrypted.iv) },
+    key, new Uint8Array(record.encrypted.data)
+  );
+  const result = JSON.parse(new TextDecoder().decode(decrypted));
+  if (!Array.isArray(result) || !result.every(item =>
+    item && typeof item.id === "string" && typeof item.site === "string" &&
+    typeof item.username === "string" && typeof item.password === "string"
+  )) throw new Error("Invalid vault account data.");
+  return result;
+}
+
+// 5. CLOUD SYNC AND LOCAL SAVE
+async function uploadCloud(record) {
+  if (!currentUser) throw new Error("Please log in first.");
+  if (!isVaultRecord(record)) throw new Error("Invalid vault record.");
+  const { error } = await db.from("vaults").upsert({
+    user_id: currentUser.id,
+    encrypted_payload: record,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "user_id" });
+  if (error) throw error;
+  $("syncStatus").textContent = "Cloud Sync: Saved successfully";
+}
+async function persistVault() {
+  if (locked || !vaultKey || !currentVaultRecord) throw new Error("Vault is locked.");
+  const encrypted = await encryptAccounts(accounts, vaultKey);
+  const record = { version: 1, salt: currentVaultRecord.salt, encrypted };
+  localStorage.setItem(userStorageKey(), JSON.stringify(record));
+  currentVaultRecord = record;
+  try {
+    await uploadCloud(record);
+    return true;
+  } catch (error) {
+    $("syncStatus").textContent = "Cloud Sync failed — encrypted local copy saved";
+    showMessage("Saved on this device, but cloud sync failed: " + error.message, "error");
+    return false;
+  }
+}
+
+// 6. CREATE / UNLOCK
+async function createVault() {
+  if (busy) return;
+  if (!crypto.subtle) { showMessage("Secure encryption requires HTTPS.", "error"); return; }
+  const password = $("createPassword").value;
+  const confirmPassword = $("confirmPassword").value;
+  if (password.length < 12) { showMessage("Master password must be at least 12 characters.", "error"); return; }
+  if (password !== confirmPassword) { showMessage("Master passwords do not match.", "error"); return; }
+  if (currentVaultRecord && !window.confirm("This will permanently replace the existing cloud vault. Continue only if you have a backup.")) return;
+
+  try {
+    setBusy(true);
+    const salt = randomBytes(16);
+    const key = await deriveKey(password, salt);
+    const record = { version: 1, salt: Array.from(salt), encrypted: await encryptAccounts([], key) };
+    // Upload first; do not show a cloud-created success if the upload failed.
+    try {
+      await uploadCloud(record);
+    } catch (error) {
+      showMessage("Vault was not created in the cloud: " + error.message + ". Check your connection and try again.", "error");
+      return;
+    }
+    localStorage.setItem(userStorageKey(), JSON.stringify(record));
+    vaultKey = key;
+    currentVaultRecord = record;
+    accounts = [];
+    locked = false;
+    $("createPassword").value = "";
+    $("confirmPassword").value = "";
+    $("syncStatus").textContent = "Cloud Sync: Saved successfully";
+    showVault();
+    showMessage("New encrypted cloud vault created.");
+  } catch (error) {
+    showMessage("Could not create vault: " + error.message, "error");
+  } finally { setBusy(false); }
+}
+async function unlockVault() {
+  if (busy) return;
+  if (!crypto.subtle) { showMessage("Secure encryption requires HTTPS.", "error"); return; }
+  const password = $("unlockPassword").value;
+  if (!password) { showMessage("Enter your master password.", "error"); return; }
+  if (!currentVaultRecord) { showMessage("No vault found. Create a new vault first.", "error"); return; }
+  try {
+    setBusy(true);
+    const key = await deriveKey(password, new Uint8Array(currentVaultRecord.salt));
+    const decrypted = await decryptAccounts(currentVaultRecord, key);
+    vaultKey = key;
+    accounts = decrypted;
+    locked = false;
+    localStorage.setItem(userStorageKey(), JSON.stringify(currentVaultRecord));
+    $("unlockPassword").value = "";
+    showVault();
+
+    // Only upload when cloud has no row (local-only vault migration).
+    const { data, error } = await db.from("vaults").select("user_id").eq("user_id", currentUser.id).maybeSingle();
+    if (error) {
+      $("syncStatus").textContent = "Unlocked — cloud status could not be checked";
+      showMessage("Vault unlocked, but cloud status could not be checked: " + error.message, "error");
+    } else if (!data) {
+      try {
+        await uploadCloud(currentVaultRecord);
+        showMessage("Vault unlocked and encrypted copy synced to cloud.");
+      } catch (syncError) {
+        $("syncStatus").textContent = "Unlocked — cloud sync failed";
+        showMessage("Vault unlocked locally, but cloud sync failed: " + syncError.message, "error");
+      }
+    } else {
+      $("syncStatus").textContent = "Cloud Sync: Connected";
+      showMessage("Vault unlocked successfully.");
+    }
+  } catch (error) {
+    showMessage("Incorrect master password or damaged vault.", "error");
+  } finally { setBusy(false); }
+}
+
+// 7. LOCK / AUTO-LOCK
+function lockVault() {
+  lockMemory();
+  showUnlock();
+  showMessage("Vault locked.");
+}
+function startAutoLock() {
+  clearTimeout(autoLockTimer);
+  autoLockTimer = setTimeout(() => { if (!locked) lockVault(); }, 5 * 60 * 1000);
+}
+function resetAutoLock() { if (!locked) startAutoLock(); }
+["click","keydown","touchstart"].forEach(event => {
+  document.addEventListener(event, resetAutoLock, { passive: true });
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && !locked) lockVault();
+});
+
+// 8. ACCOUNT MANAGEMENT
+function resetForm() {
+  $("siteInput").value = "";
+  $("usernameInput").value = "";
+  $("passwordInput").value = "";
+  $("editId").value = "";
+  $("formTitle").textContent = "Add Account";
+  $("cancelEdit").classList.add("hidden");
+}
+async function saveAccount() {
+  if (locked || busy) return;
+  const site = $("siteInput").value.trim();
+  const username = $("usernameInput").value.trim();
+  const password = $("passwordInput").value;
+  const editId = $("editId").value;
+  if (!site || !username || !password) { showMessage("Fill all account fields.", "error"); return; }
+
+  const previous = accounts.map(item => ({...item}));
+  if (editId) {
+    const item = accounts.find(a => a.id === editId);
+    if (!item) { showMessage("Account not found.", "error"); return; }
+    Object.assign(item, { site, username, password });
+  } else {
+    accounts.push({ id: crypto.randomUUID(), site, username, password });
+  }
+  try {
+    setBusy(true);
+    const cloudSaved = await persistVault();
+    resetForm();
+    renderAccounts();
+    if (cloudSaved) showMessage("Account saved and synced to cloud.");
+    else showMessage("Account saved on this device only. Cloud sync needs attention.", "error");
+  } catch (error) {
+    accounts = previous;
+    renderAccounts();
+    showMessage("Could not save account: " + error.message, "error");
+  } finally { setBusy(false); }
+}
+function editAccount(id) {
+  const item = accounts.find(a => a.id === id);
+  if (!item || locked) return;
+  $("siteInput").value = item.site;
+  $("usernameInput").value = item.username;
+  $("passwordInput").value = item.password;
+  $("editId").value = id;
+  $("formTitle").textContent = "Edit Account";
+  $("cancelEdit").classList.remove("hidden");
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+async function deleteAccount(id) {
+  if (locked || busy || !window.confirm("Delete this account?")) return;
+  const previous = accounts.map(item => ({...item}));
+  accounts = accounts.filter(a => a.id !== id);
+  try {
+    setBusy(true);
+    const cloudSaved = await persistVault();
+    renderAccounts();
+    showMessage(cloudSaved ? "Account deleted and synced." : "Deleted on this device only. Cloud sync needs attention.", cloudSaved ? "success" : "error");
+  } catch (error) {
+    accounts = previous;
+    renderAccounts();
+    showMessage("Could not delete account: " + error.message, "error");
+  } finally { setBusy(false); }
+}
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    showMessage("Copied. Remember that clipboard contents may remain on your device.");
+  } catch (error) {
+    showMessage("Clipboard unavailable. Check browser permission and HTTPS.", "error");
+  }
+}
+function renderAccounts() {
+  const list = $("accountList");
+  if (!list) return;
+  list.replaceChildren();
+  const search = $("searchInput").value.toLowerCase().trim();
+  const filtered = accounts.filter(a =>
+    a.site.toLowerCase().includes(search) || a.username.toLowerCase().includes(search)
+  );
+  $("emptyMessage").classList.toggle("hidden", filtered.length > 0);
+  filtered.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "account";
+    const top = document.createElement("div");
+    top.className = "account-top";
+    const name = document.createElement("div");
+    name.className = "account-name";
+    name.textContent = item.site;
+    const password = document.createElement("div");
+    password.className = "password";
+    password.textContent = "••••••••••";
+    const reveal = document.createElement("button");
+    reveal.className = "small secondary";
+    reveal.textContent = "Show";
+    let visible = false;
+    reveal.onclick = () => {
+      visible = !visible;
+      password.textContent = visible ? item.password : "••••••••••";
+      reveal.textContent = visible ? "Hide" : "Show";
+    };
+    const username = document.createElement("div");
+    username.className = "account-user";
+    username.textContent = item.username;
+    top.append(name, reveal);
+    div.append(top, username, password);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    function addButton(label, callback, style="secondary") {
+      const button = document.createElement("button");
+      button.className = "small " + style;
+      button.textContent = label;
+      button.onclick = callback;
+      actions.append(button);
+    }
+    addButton("Copy Username", () => copyText(item.username));
+    addButton("Copy Password", () => copyText(item.password));
+    addButton("Edit", () => editAccount(item.id));
+    addButton("Delete", () => deleteAccount(item.id), "danger");
+    div.append(actions);
+    list.append(div);
+  });
+}
+
+// 9. ENCRYPTED BACKUP / RESTORE
+function downloadBackup() {
+  if (locked || !currentVaultRecord) { showMessage("Unlock your vault first.", "error"); return; }
+  const backup = { format: "AS_PASS_VAULT_BACKUP", version: 1, vault: currentVaultRecord };
+  const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "AS-PASS-VAULT-BACKUP.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showMessage("Encrypted backup download started. Keep the file private.");
+}
+async function restoreBackup() {
+  if (locked || busy) { showMessage("Unlock your vault first.", "error"); return; }
+  const file = $("restoreFile").files[0];
+  const password = $("restorePassword").value;
+  if (!file || !password) { showMessage("Select a backup file and enter its master password.", "error"); return; }
+  if (file.size > 5 * 1024 * 1024) { showMessage("Backup file is too large.", "error"); return; }
+
+  try {
+    setBusy(true);
+    const backup = JSON.parse(await file.text());
+    if (!backup || backup.format !== "AS_PASS_VAULT_BACKUP" || backup.version !== 1 || !isVaultRecord(backup.vault)) {
+      throw new Error("Invalid backup file.");
+    }
+    const imported = backup.vault;
+    const key = await deriveKey(password, new Uint8Array(imported.salt));
+    const restored = await decryptAccounts(imported, key);
+    if (!window.confirm("Replace the current cloud vault with this backup? This cannot be undone unless you have another backup.")) return;
+
+    // Store locally first, then sync. Keep restored state visible if cloud sync fails.
+    localStorage.setItem(userStorageKey(), JSON.stringify(imported));
+    currentVaultRecord = imported;
+    vaultKey = key;
+    accounts = restored;
+    locked = false;
+    $("restorePassword").value = "";
+    $("restoreFile").value = "";
+    renderAccounts();
+    try {
+      await uploadCloud(imported);
+      showMessage("Backup restored and synced to cloud.");
+    } catch (syncError) {
+      $("syncStatus").textContent = "Restored locally — cloud sync failed";
+      showMessage("Backup restored on this device, but cloud sync failed: " + syncError.message, "error");
+    }
+  } catch (error) {
+    showMessage("Restore failed. Check the backup file and its master password.", "error");
+  } finally { setBusy(false); }
+}
+
+// 10. NEW VAULT / INITIALIZE
+function createFreshVault() {
+  if (locked) { showMessage("Unlock your current vault first, or use Create New Vault from the home screen.", "error"); return; }
+  if (!window.confirm("Start a replacement vault? Your existing cloud vault will remain until you successfully create the replacement. Download a backup first if you need it.")) return;
+  lockMemory();
+  showCreate();
+  showMessage("Enter a new master password to create the replacement vault.");
+}
+async function initialize() {
+  if (!window.isSecureContext || !crypto.subtle) {
+    showAuth();
+    showMessage("Open this website over HTTPS to use secure encryption.", "error");
+    return;
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    showAuth();
+    showMessage("Supabase library could not load. Check your internet connection and reload.", "error");
+    return;
+  }
+  if (SUPABASE_URL.includes("PASTE_") || SUPABASE_KEY.includes("PASTE_")) {
+    showAuth();
+    showMessage("Add your Supabase Project URL and Publishable Key in the configuration section.", "error");
+    return;
+  }
+  try {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data, error } = await db.auth.getSession();
+    if (error) throw error;
+    if (data.session) {
+      currentUser = data.session.user;
+      await prepareVault();
+    } else {
+      showAuth();
+    }
+    db.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        resetAppState();
+        showAuth();
+      }
+    });
+  } catch (error) {
+    showAuth();
+    showMessage("Initialization failed: " + error.message, "error");
+  }
+}
+initialize();
+</script>
+</body>
+</html>
